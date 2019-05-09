@@ -363,6 +363,7 @@ static inline int hp_function_map_filter_collision(hp_function_map *map, uint8 h
 zend_string *tw_pcre_match(char *pattern, strsize_t len, zval *subject TSRMLS_DC);
 
 /* {{{ arginfo */
+//定义arginfo，用于控制函数传参
 ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_enable, 0, 0, 0)
   ZEND_ARG_INFO(0, flags)
   ZEND_ARG_INFO(0, options)
@@ -428,6 +429,7 @@ ZEND_END_ARG_INFO()
  * *********************
  */
 /* List of functions implemented/exposed by Tideways */
+/*声明Zend函数块，将导出函数注册到函数表，之后PHP脚本可以调用这些函数*/
 zend_function_entry tideways_functions[] = {
     PHP_FE(tideways_enable, arginfo_tideways_enable)
     PHP_FE(tideways_disable, arginfo_tideways_disable)
@@ -652,6 +654,7 @@ long tw_trace_callback_record_with_cache(char *category, int category_len, char 
     return idx;
 }
 
+//获取span的持续系统时间，并加入span.b中
 void tw_span_timer_start(long spanId TSRMLS_DC)
 {
     zval *span, *starts;
@@ -2279,6 +2282,7 @@ EMPTY_SWITCH_DEFAULT_CASE()
  *
  * @author mpal
  */
+//从args中解析可选参数，并加入到全局变量中（如ignored_functions、functions等）
 static void hp_parse_options_from_arg(zval *args TSRMLS_DC)
 {
     hp_clean_profiler_options_state(TSRMLS_C);
@@ -3342,6 +3346,7 @@ void hp_inc_count(zval *counts, char *name, long count TSRMLS_DC)
 /**
  * ***********************
  * High precision timer related functions.
+ * 高精度定时器相关功能
  * ***********************
  */
 
@@ -3351,6 +3356,7 @@ void hp_inc_count(zval *counts, char *name, long count TSRMLS_DC)
  * @return 64 bit unsigned integer
  * @author cjiang
  */
+//获取当前的系统时钟
 static uint64 cycle_timer() {
 #ifdef __APPLE__
     return mach_absolute_time();
@@ -3365,6 +3371,7 @@ static uint64 cycle_timer() {
 /**
  * Get the current real CPU clock timer
  */
+//获取当前真实的CPU时钟计时器
 static uint64 cpu_timer() {
 #if defined(CLOCK_PROCESS_CPUTIME_ID)
     struct timespec s;
@@ -3384,6 +3391,7 @@ static uint64 cpu_timer() {
 /**
  * Get time delta in microseconds.
  */
+//获得以微秒为单位的时间增量
 static long get_us_interval(struct timeval *start, struct timeval *end)
 {
     return (((end->tv_sec - start->tv_sec) * 1000000)
@@ -3398,6 +3406,7 @@ static long get_us_interval(struct timeval *start, struct timeval *end)
  *
  * @author cjiang
  */
+//转换时间为微秒
 static inline double get_us_from_tsc(uint64 count TSRMLS_DC)
 {
     return count / TWG(timebase_factor);
@@ -3406,6 +3415,7 @@ static inline double get_us_from_tsc(uint64 count TSRMLS_DC)
 /**
  * Get the timebase factor necessary to divide by in cycle_timer()
  */
+//获取时基因子，用于除法
 static double get_timebase_factor()
 {
 #ifdef __APPLE__
@@ -3779,6 +3789,10 @@ ZEND_DLEXPORT zend_op_array* hp_compile_string(zval *source_string, char *filena
  * It replaces all the functions like zend_execute, zend_execute_internal,
  * etc that needs to be instrumented with their corresponding proxies.
  */
+//完成初始化工作：
+//1.初始化探针状态
+//2.在全局变量中加入tideways_flags、系统时间、CPU时间等
+//3.创建span
 static void hp_begin(long tideways_flags TSRMLS_DC)
 {
     if (!TWG(enabled)) {
@@ -3792,12 +3806,13 @@ static void hp_begin(long tideways_flags TSRMLS_DC)
 
         /* start profiling from fictitious main() */
         TWG(root) = estrdup(ROOT_SYMBOL);
-        TWG(start_time) = cycle_timer();
+        TWG(start_time) = cycle_timer();//系统时间
 
         if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
-            TWG(cpu_start) = cpu_timer();
+            TWG(cpu_start) = cpu_timer();//CPU时间
         }
 
+        //创建span，加入spans
         tw_span_create("app", 3 TSRMLS_CC);
         tw_span_timer_start(0 TSRMLS_CC);
 
@@ -3878,6 +3893,7 @@ static void hp_stop(TSRMLS_D)
  *
  *  @author mpal
  **/
+//从values表中查找key值对应的value，返回索引
 static zval *hp_zval_at_key(char *key, size_t size, zval *values)
 {
     if (Z_TYPE_P(values) == IS_ARRAY) {
@@ -4177,20 +4193,23 @@ PHP_FUNCTION(tideways_span_callback)
  * @return void
  * @author kannan
  */
+//在模块中启用tideways采样
 PHP_FUNCTION(tideways_enable)
 {
-    zend_long tideways_flags = 0;
-    zval *optional_array = NULL;
+	zend_long tideways_flags = 0;  //php脚本中传递的参数，为php_tideways.h中的多个16进制数（如TIDEWAYS_FLAGS_CPU），通过|生成的16进制数
+    zval *optional_array = NULL;   //php脚本中传递的参数
 
     if (TWG(enabled)) {
         hp_stop(TSRMLS_C);
     }
+
 
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC,
                 "|lz", &tideways_flags, &optional_array) == FAILURE) {
         return;
     }
 
+    //从args中解析可选参数，并加入到全局变量中（如ignored_functions、functions等）
     hp_parse_options_from_arg(optional_array TSRMLS_CC);
 
     hp_begin(tideways_flags TSRMLS_CC);

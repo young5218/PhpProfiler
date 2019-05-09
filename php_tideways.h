@@ -20,6 +20,7 @@
 #ifndef PHP_TIDEWAYS_H
 #define PHP_TIDEWAYS_H
 
+//（young5218）extern表明tideways_module_entry在其他模块
 extern zend_module_entry tideways_module_entry;
 #define phpext_tideways_ptr &tideways_module_entry
 
@@ -38,6 +39,7 @@ extern zend_module_entry tideways_module_entry;
 
 /* Fictitious function name to represent top of the call tree. The paranthesis
  * in the name is to ensure we don't conflict with user function names.  */
+//虚函数名称代表调用树的顶部, 名称中的括号是为了确保我们不与用户函数名冲突。
 #define ROOT_SYMBOL                "main()"
 
 /* Size of a temp scratch buffer            */
@@ -49,6 +51,7 @@ extern zend_module_entry tideways_module_entry;
  * The following optional flags can be used to control other aspects of
  * profiling.
  */
+//（young5218）定义常量，在PHP_MINIT_FUNCTION中将其加入到全局常量列表中，php文件中可用
 #define TIDEWAYS_FLAGS_NO_BUILTINS   0x0001 /* do not profile builtins */
 #define TIDEWAYS_FLAGS_CPU           0x0002 /* gather CPU times for funcs */
 #define TIDEWAYS_FLAGS_MEMORY        0x0004 /* gather memory usage for funcs */
@@ -65,6 +68,7 @@ extern zend_module_entry tideways_module_entry;
                ((TIDEWAYS_MAX_FILTERED_FUNCTIONS + 7)/8)
 #define TIDEWAYS_MAX_ARGUMENT_LEN 256
 
+//（young5218）为数据类型定义别名
 #if !defined(uint64)
 typedef unsigned long long uint64;
 #endif
@@ -100,18 +104,21 @@ typedef zend_uint uint32_t;
  * This structure is a convenient place to track start time of a particular
  * profile operation, recursion depth, and the name of the function being
  * profiled. */
+
+//（young5218）定义数据存储结构
 typedef struct hp_entry_t {
-    char                   *name_hprof;                       /* function name */
-    int                     rlvl_hprof;        /* recursion level for function */
-    uint64                  tsc_start;         /* start value for wall clock timer */
-    uint64                  cpu_start;         /* start value for CPU clock timer */
-    long int                mu_start_hprof;                    /* memory usage */
-    long int                pmu_start_hprof;              /* peak memory usage */
-    struct hp_entry_t      *prev_hprof;    /* ptr to prev entry being profiled */
-    uint8                   hash_code;     /* hash_code for the function name  */
-    long int                span_id; /* span id of this entry if any, otherwise -1 */
+    char                   *name_hprof;                       /* function name 方法名*/
+    int                     rlvl_hprof;        /* recursion level for function 函数递归级别*/
+    uint64                  tsc_start;         /* start value for wall clock timer 系统时间*/
+    uint64                  cpu_start;         /* start value for CPU clock timer CPU时间*/
+    long int                mu_start_hprof;                    /* memory usage 内存占用*/
+    long int                pmu_start_hprof;              /* peak memory usage 内存峰值*/
+    struct hp_entry_t      *prev_hprof;    /* ptr to prev entry being profiled 前一个被探查的方法指针*/
+    uint8                   hash_code;     /* hash_code for the function name  方法名的hash值*/
+    long int                span_id; /* span id of this entry if any, otherwise -1  span id值*/
 } hp_entry_t;
 
+//（young5218）方法名称堆栈
 typedef struct hp_function_map {
     char **names;
     uint8 filter[TIDEWAYS_FILTERED_FUNCTION_SIZE];
@@ -127,19 +134,21 @@ typedef struct tw_watch_callback {
  * This structure is instantiated once.  Initialize defaults for attributes in
  * hp_init_profiler_state() Cleanup/free attributes in
  * hp_clean_profiler_state() */
+
+//（young5218）声明全局变量
 ZEND_BEGIN_MODULE_GLOBALS(hp)
 
     /*       ----------   Global attributes:  -----------       */
 
-    /* Indicates if Tideways is currently enabled */
+    /* Indicates if Tideways is currently enabled  是否启用tideways*/
     int              enabled;
 
-    /* Indicates if Tideways was ever enabled during this request */
+    /* Indicates if Tideways was ever enabled during this request 在此请求期间是否曾启用过Tideways*/
     int              ever_enabled;
 
     int              prepend_overwritten;
 
-    /* Holds all the Tideways statistics */
+    /* Holds all the Tideways statistics 保存所有Tideways统计数据*/
 #if PHP_VERSION_ID >= 70000
     zval            stats_count;
     zval            spans;
@@ -154,13 +163,13 @@ ZEND_BEGIN_MODULE_GLOBALS(hp)
 
     zval            *backtrace;
 
-    /* Top of the profile stack */
+    /* Top of the profile stack 探针堆栈栈顶*/
     hp_entry_t      *entries;
 
-    /* freelist of hp_entry_t chunks for reuse... */
+    /* freelist of hp_entry_t chunks for reuse... hp_entry_t块可以重用的空闲列表*/
     hp_entry_t      *entry_free_list;
 
-    /* Function that determines the transaction name and callback */
+    /* Function that determines the transaction name and callback 确定事务名称和回调的函数*/
     zend_string       *transaction_function;
     zend_string     *transaction_name;
     char            *root;
@@ -172,26 +181,26 @@ ZEND_BEGIN_MODULE_GLOBALS(hp)
     /* Tideways flags */
     uint32 tideways_flags;
 
-    /* counter table indexed by hash value of function names. */
+    /* counter table indexed by hash value of function names. 函数名哈希值的索引表*/
     uint8  func_hash_counters[256];
 
-    /* Table of filtered function names and their filter */
+    /* Table of filtered function names and their filter 已过滤的函数名称及其过滤器表*/
     int     filtered_type; // 1 = blacklist, 2 = whitelist, 0 = nothing
 
     hp_function_map *filtered_functions;
 
     HashTable *trace_watch_callbacks;
     HashTable *trace_callbacks;
-    HashTable *span_cache;
+    HashTable *span_cache;	//如果spans数量达到上限，span_cache保存每个类别（category）对应的汇聚span的spanid
 
-    uint32_t gc_runs; /* number of garbage collection runs */
-    uint32_t gc_collected; /* number of collected items in garbage run */
+    uint32_t gc_runs; /* number of garbage collection runs 垃圾回收次数*/
+    uint32_t gc_collected; /* number of collected items in garbage run 垃圾回收中收集的物品数量*/
     int compile_count;
     double compile_wt;
     uint64 cpu_start;
     int max_spans;
 
-    int stack_threshold;
+    int stack_threshold; /*堆栈阈值*/
 ZEND_END_MODULE_GLOBALS(hp)
 
 #ifdef ZTS
@@ -200,14 +209,15 @@ ZEND_END_MODULE_GLOBALS(hp)
 #define TWG(v) (hp_globals.v)
 #endif
 
-PHP_MINIT_FUNCTION(tideways);
-PHP_MSHUTDOWN_FUNCTION(tideways);
-PHP_RINIT_FUNCTION(tideways);
-PHP_RSHUTDOWN_FUNCTION(tideways);
-PHP_MINFO_FUNCTION(tideways);
-PHP_GINIT_FUNCTION(hp);
-PHP_GSHUTDOWN_FUNCTION(hp);
+PHP_MINIT_FUNCTION(tideways);   	/*模块初始化*/
+PHP_MSHUTDOWN_FUNCTION(tideways); 	/*模块关闭时*/
+PHP_RINIT_FUNCTION(tideways);		/*请求开始前*/
+PHP_RSHUTDOWN_FUNCTION(tideways); 	/*请求结束时*/
+PHP_MINFO_FUNCTION(tideways);		/*设置php_info展示的扩展信息*/
+PHP_GINIT_FUNCTION(hp);				/* 初始化全局变量时*/
+PHP_GSHUTDOWN_FUNCTION(hp);			/*释放全局变量时*/
 
+/*声明导出函数，PHP脚本可直接调用*/
 PHP_FUNCTION(tideways_enable);
 PHP_FUNCTION(tideways_disable);
 PHP_FUNCTION(tideways_transaction_name);
