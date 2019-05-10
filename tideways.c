@@ -53,6 +53,7 @@
 
 #if PHP_VERSION_ID < 70000
 
+//返回 _zend_execute_data对象的function_state.arguments，即指向函数参数的指针
 static inline void **hp_get_execute_arguments(zend_execute_data *data)
 {
     void **p;
@@ -75,12 +76,14 @@ static inline void **hp_get_execute_arguments(zend_execute_data *data)
     return p;
 }
 
+//返回函数参数个数
 static inline int hp_num_execute_arguments(zend_execute_data *data)
 {
     void **p = hp_get_execute_arguments(data);
     return (int)(zend_uintptr_t) *p;
 }
 
+//返回第几个参数
 static inline zval *hp_get_execute_argument(zend_execute_data *data, int n)
 {
     void **p = hp_get_execute_arguments(data);
@@ -88,6 +91,7 @@ static inline zval *hp_get_execute_argument(zend_execute_data *data, int n)
     return *(p-(arg_count-n));
 }
 
+//申请内存空间，创建字符串
 static zend_always_inline zend_string *zend_string_alloc(int len, int persistent)
 {
     /* single alloc, so free the buf, will also free the struct */
@@ -101,6 +105,7 @@ static zend_always_inline zend_string *zend_string_alloc(int len, int persistent
     return str;
 }
 
+//复制字符串并返回
 static zend_always_inline zend_string *zend_string_init(const char *str, size_t len, int persistent)
 {
     zend_string *ret = zend_string_alloc(len, persistent);
@@ -110,6 +115,7 @@ static zend_always_inline zend_string *zend_string_init(const char *str, size_t 
     return ret;
 }
 
+//释放字符串内存空间
 static zend_always_inline void zend_string_free(zend_string *s)
 {
     if (s == NULL) {
@@ -119,6 +125,7 @@ static zend_always_inline void zend_string_free(zend_string *s)
     pefree(s->val, s->persistent);
 }
 
+//释放字符串内存空间
 static zend_always_inline void zend_string_release(zend_string *s)
 {
     if (s == NULL) {
@@ -130,12 +137,12 @@ static zend_always_inline void zend_string_release(zend_string *s)
 
 /* new macros */
 #define RETURN_STR_COPY(s)    RETURN_STRINGL(estrdup(s->val), s->len, 0)
-#define Z_STR_P(z)            zend_string_init(Z_STRVAL_P(z), Z_STRLEN_P(z), 0)
-#define ZSTR_VAL(zstr)  (zstr)->val
-#define ZSTR_LEN(zstr)  (zstr)->len
+#define Z_STR_P(z)            zend_string_init(Z_STRVAL_P(z), Z_STRLEN_P(z), 0)		//复制字符串
+#define ZSTR_VAL(zstr)  (zstr)->val													//返回字符串的值
+#define ZSTR_LEN(zstr)  (zstr)->len													//返回字符串长度
 
-#define ZEND_CALL_NUM_ARGS(call) hp_num_execute_arguments(call)
-#define ZEND_CALL_ARG(call, n) hp_get_execute_argument(call, n-1)
+#define ZEND_CALL_NUM_ARGS(call) hp_num_execute_arguments(call)						//返回函数参数个数
+#define ZEND_CALL_ARG(call, n) hp_get_execute_argument(call, n-1)					//获取某个参数
 #define EX_OBJ(call) call->object
 
 #define Z_TRY_ADDREF_P(zv) Z_ADDREF_P(zv);
@@ -149,7 +156,7 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define tw_call_user_function_ex(function_table, object, function_name, retval_ptr) call_user_function_ex(function_table, &object, function_name, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)
 #define _DECLARE_ZVAL(name) zval * name
 #define _ALLOC_INIT_ZVAL(name) ALLOC_INIT_ZVAL(name)
-#define hp_ptr_dtor(val) zval_ptr_dtor( &val )
+#define hp_ptr_dtor(val) zval_ptr_dtor( &val )			//释放内容
 #define zend_string_copy(s) s
 #define zend_hash_str_update(array, key, len, value) zend_hash_update(array, key, len+1, value, sizeof(zval*), NULL)
 #define TWG_ARRVAL(val) Z_ARRVAL_P(val)
@@ -237,11 +244,13 @@ static zend_always_inline zval *zend_compat_hash_get_current_data_ex(HashTable *
 #endif
 }
 
+//在ht中根据key关键字，找到的值并返回
 static zend_always_inline long zend_compat_hash_find_long(HashTable *ht, char *key, strsize_t len)
 {
 #if PHP_VERSION_ID < 70000
     long *idx_ptr = NULL;
 
+    //在ht中根据key关键字，找到的值存放进idx_ptr
     if (zend_hash_find(ht, key, len+1, (void **)&idx_ptr) == SUCCESS) {
         return *idx_ptr;
     }
@@ -496,6 +505,7 @@ PHP_INI_END()
 /* Init module */
 ZEND_GET_MODULE(tideways)
 
+//初始化探针的全局变量
 PHP_GINIT_FUNCTION(hp)
 {
     hp_globals->enabled = 0;
@@ -525,6 +535,7 @@ PHP_GINIT_FUNCTION(hp)
     hp_globals->stack_threshold = 50000;
 }
 
+//释放全局变量时
 PHP_GSHUTDOWN_FUNCTION(hp)
 {
 }
@@ -538,13 +549,16 @@ PHP_MINIT_FUNCTION(tideways)
 {
     int i;
 
+    //将php.ini中的键值对，加入到全局变量中
     REGISTER_INI_ENTRIES();
 
+    //定义全局常量
     hp_register_constants(INIT_FUNC_ARGS_PASSTHRU);
 
     /* Get the number of available logical CPUs. */
     TWG(timebase_factor) = get_timebase_factor();
 
+    //变量初始化，置为null
 #if PHP_VERSION_ID < 70000
     TWG(stats_count) = NULL;
     TWG(spans) = NULL;
@@ -603,7 +617,7 @@ PHP_MINIT_FUNCTION(tideways)
  */
 PHP_MSHUTDOWN_FUNCTION(tideways)
 {
-    /* free any remaining items in the free list */
+    /* free any remaining items in the free list 释放所有空闲对象*/
     hp_free_the_free_list(TSRMLS_C);
 
     /* Remove proxies, restore the originals */
@@ -627,22 +641,27 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
     gc_collect_cycles = tw_original_gc_collect_cycles;
 #endif
 
+    //销毁php.ini的全局变量
     UNREGISTER_INI_ENTRIES();
 
     return SUCCESS;
 }
 
+//
 long tw_trace_callback_record_with_cache(char *category, int category_len, char *summary, strsize_t summary_len, int copy TSRMLS_DC)
 {
     long idx;
 
+    //在span_cache中，根据summary，找到相应的值(spanid)返回
     idx = zend_compat_hash_find_long(TWG(span_cache), summary, summary_len);
 
+    //如果不存在该span，则根据category创建span，并将summary和spanid以键值对的形式存放进span_cache
     if (idx == -1) {
         idx = tw_span_create(category, category_len TSRMLS_CC);
         zend_compat_hash_update_long(TWG(span_cache), summary, summary_len, idx);
     }
 
+    //为span添加annotation
     tw_span_annotate_string(idx, "title", summary, copy TSRMLS_CC);
 
 #if PHP_VERSION_ID >= 70000
@@ -655,6 +674,7 @@ long tw_trace_callback_record_with_cache(char *category, int category_len, char 
 }
 
 //获取span的持续系统时间，并加入span.b中
+//cycle_timer() - TWG(start_time)
 void tw_span_timer_start(long spanId TSRMLS_DC)
 {
     zval *span, *starts;
@@ -680,6 +700,7 @@ void tw_span_timer_start(long spanId TSRMLS_DC)
     add_next_index_long(starts, wt);
 }
 
+//为span.e(stops)添加cycle_timer() - TWG(start_time)
 void tw_span_timer_stop(long spanId TSRMLS_DC)
 {
     zval *span, *stops;
@@ -2120,6 +2141,8 @@ long tw_trace_callback_file_get_contents(char *symbol, zend_execute_data *data T
  * in request init. This makes class \Tideways\Profiler available
  * for usage.
  */
+//检查Tideways.php是否存在于扩展目录，如果存在且有权限访问，则加载它使得探针启用（将auto_prepend_file设置为Tideways.php）
+//tideways优先加载ext/Tideways.php，其次使用php.ini中auto_prepend_file设置的字段
 PHP_RINIT_FUNCTION(tideways)
 {
     char *extension_dir;
@@ -2141,22 +2164,28 @@ PHP_RINIT_FUNCTION(tideways)
     if (INI_INT("tideways.auto_prepend_library") == 0) {
         return SUCCESS;
     }
-
+    //从php.ini中读取扩展目录，默认为ext
     extension_dir  = INI_STR("extension_dir");
     profiler_file_len = strlen(extension_dir) + strlen("Tideways.php") + 2;
     profiler_file = emalloc(profiler_file_len);
     snprintf(profiler_file, profiler_file_len, "%s/%s", extension_dir, "Tideways.php");
 
+    //open_basedir在php.ini中设置，如果设置该字段，则所有文件操作只能在open_basedir定义的目录中
+    //php_check_open_basedir_ex:如果出错或不在open_basedir，返回-1；否则返回0；open_basedir为空也返回0
+    //profiler_file如果不存在或没有权限，则进入if分支释放内存并返回
     if (PG(open_basedir) && php_check_open_basedir_ex(profiler_file, 0 TSRMLS_CC)) {
-        efree(profiler_file);
+        efree(profiler_file);//释放内存
         return SUCCESS;
     }
 
+    //如果profiler_file文件存在、有权限、且可访问
+    //则将auto_prepend_file设置为“./ext/Tideways.php”,将prepend_overwritten设置为1
     if (VCWD_ACCESS(profiler_file, F_OK) == 0) {
         PG(auto_prepend_file) = profiler_file;
         TWG(prepend_overwritten) = 1;
     } else {
-        efree(profiler_file);
+        //不可访问，则释放内存
+    	efree(profiler_file);
     }
 
     return SUCCESS;
@@ -2165,10 +2194,13 @@ PHP_RINIT_FUNCTION(tideways)
 /**
  * Request shutdown callback. Stop profiling and return.
  */
+//事务结束，停止采样并返回
 PHP_RSHUTDOWN_FUNCTION(tideways)
 {
-    hp_end(TSRMLS_C);
+    //清空探针全局状态
+	hp_end(TSRMLS_C);
 
+	//如果auto_prepend_file被重写为Tideways.php，则释放内存，并将prepend_overwritten设置为0（未重写）
     if (TWG(prepend_overwritten) == 1) {
         efree(PG(auto_prepend_file));
         PG(auto_prepend_file) = NULL;
@@ -2181,6 +2213,7 @@ PHP_RSHUTDOWN_FUNCTION(tideways)
 /**
  * Module info callback. Returns the Tideways version.
  */
+//设置php_info展示的扩展信息，添加打印tideways信息
 PHP_MINFO_FUNCTION(tideways)
 {
     char *extension_dir;
@@ -2209,6 +2242,7 @@ PHP_MINFO_FUNCTION(tideways)
     profiler_file = emalloc(profiler_file_len);
     snprintf(profiler_file, profiler_file_len, "%s/%s", extension_dir, "Tideways.php");
 
+    //打印是否发现Tideways.php
     if (VCWD_ACCESS(profiler_file, F_OK) == 0) {
         php_info_print_table_row(2, "Tideways.php found", "Yes");
     } else {
@@ -2226,10 +2260,11 @@ PHP_MINFO_FUNCTION(tideways)
  * COMMON HELPER FUNCTION DEFINITIONS AND LOCAL MACROS
  * ***************************************************
  */
-
+//定义全局常量，php脚本中可以使用
 static void hp_register_constants(INIT_FUNC_ARGS)
 {
-    REGISTER_LONG_CONSTANT("TIDEWAYS_FLAGS_CPU", TIDEWAYS_FLAGS_CPU, CONST_CS | CONST_PERSISTENT);
+	//第一个参数是常量名称，第二个参数是常来那个值，第三个参数表示区分大小写且为持久化常量
+	REGISTER_LONG_CONSTANT("TIDEWAYS_FLAGS_CPU", TIDEWAYS_FLAGS_CPU, CONST_CS | CONST_PERSISTENT);
     REGISTER_LONG_CONSTANT("TIDEWAYS_FLAGS_MEMORY", TIDEWAYS_FLAGS_MEMORY, CONST_CS | CONST_PERSISTENT);
     REGISTER_LONG_CONSTANT("TIDEWAYS_FLAGS_NO_BUILTINS", TIDEWAYS_FLAGS_NO_BUILTINS, CONST_CS | CONST_PERSISTENT);
     REGISTER_LONG_CONSTANT("TIDEWAYS_FLAGS_NO_USERLAND", TIDEWAYS_FLAGS_NO_USERLAND, CONST_CS | CONST_PERSISTENT);
@@ -2247,6 +2282,7 @@ static void hp_register_constants(INIT_FUNC_ARGS)
  *
  * @author cjiang
  */
+//用于为函数名生成8位的哈希值
 static inline uint8 hp_inline_hash(char * arKey)
 {
     size_t nKeyLength = strlen(arKey);
@@ -2319,6 +2355,7 @@ static void hp_parse_options_from_arg(zval *args TSRMLS_DC)
     }
 }
 
+//释放TWG(exception_function)和TWG(exception)的内存空间
 static void hp_exception_function_clear(TSRMLS_D) {
     if (TWG(exception_function) != NULL) {
         zend_string_release(TWG(exception_function));
@@ -2330,12 +2367,14 @@ static void hp_exception_function_clear(TSRMLS_D) {
     ZVAL_NULL(&TWG(exception));
 #else
     if (TWG(exception) != NULL) {
-        hp_ptr_dtor(TWG(exception));
+    	//释放空间
+    	hp_ptr_dtor(TWG(exception));
         TWG(exception) = NULL;
     }
 #endif
 }
 
+//释放TWG(transaction_function)的内存空间
 static void hp_transaction_function_clear(TSRMLS_D) {
     if (TWG(transaction_function)) {
         zend_string_release(TWG(transaction_function));
@@ -2343,12 +2382,14 @@ static void hp_transaction_function_clear(TSRMLS_D) {
     }
 }
 
+//创建方法名称map:hp_function_map
 static inline hp_function_map *hp_function_map_create(char **names)
 {
     if (names == NULL) {
         return NULL;
     }
 
+    //hp_function_map在php_tideways.h中
     hp_function_map *map;
 
     map = emalloc(sizeof(hp_function_map));
@@ -2367,6 +2408,7 @@ static inline hp_function_map *hp_function_map_create(char **names)
     return map;
 }
 
+//释放hp_function_map占用内存资源
 static inline void hp_function_map_clear(hp_function_map *map) {
     if (map == NULL) {
         return;
@@ -2379,6 +2421,7 @@ static inline void hp_function_map_clear(hp_function_map *map) {
     efree(map);
 }
 
+//如果hash_code存在于map，则返回1；hash_code不存在，则返回0
 static inline int hp_function_map_exists(hp_function_map *map, uint8 hash_code, char *curr_func)
 {
     if (hp_function_map_filter_collision(map, hash_code)) {
@@ -2823,17 +2866,21 @@ static void hp_clean_profiler_options_state(TSRMLS_D)
  *        CALLING FUNCTION OR BY CALLING TSRMLS_FETCH()
  *        TSRMLS_FETCH() IS RELATIVELY EXPENSIVE.
  */
+//如果symbol不存在于全局变量filtered_functions，则execute_data不被过滤，创建cur_entry并更新给entries
 #define BEGIN_PROFILING(entries, symbol, profile_curr, execute_data)            \
     do {                                                                        \
         /* Use a hash code to filter most of the string comparisons. */         \
         uint8 hash_code  = hp_inline_hash(symbol);                              \
+        //如果hash_code存在于filtered_functions，则返回1；hash_code不存在，则返回0
         profile_curr = !hp_filter_entry(hash_code, symbol TSRMLS_CC);           \
+        //profile_curr非0，则创建cur_entry并赋值，最后将栈顶entries设置为cur_entry
         if (profile_curr) {                                                     \
             hp_entry_t *cur_entry = hp_fast_alloc_hprof_entry(TSRMLS_C);        \
             (cur_entry)->hash_code = hash_code;                                 \
             (cur_entry)->name_hprof = symbol;                                   \
             (cur_entry)->prev_hprof = (*(entries));                             \
             (cur_entry)->span_id = -1;                                          \
+            //对hp_entry_t进行采样，填充字段
             hp_mode_hier_beginfn_cb((entries), (cur_entry), execute_data TSRMLS_CC);            \
             /* Update entries linked list */                                    \
             (*(entries)) = (cur_entry);                                         \
@@ -2908,6 +2955,7 @@ size_t hp_get_entry_name(hp_entry_t  *entry, char *result_buf, size_t result_len
  *
  * @author mpal
  */
+ //如果hash_code存在于filtered_functions，则返回1；hash_code不存在，则返回0
 static inline int hp_filter_entry(uint8 hash_code, char *curr_func TSRMLS_DC)
 {
     int exists;
@@ -2917,6 +2965,7 @@ static inline int hp_filter_entry(uint8 hash_code, char *curr_func TSRMLS_DC)
         return 0;
     }
 
+    //如果hash_code存在于map，则返回1；hash_code不存在，则返回0
     exists = hp_function_map_exists(TWG(filtered_functions), hash_code, curr_func);
 
     if (TWG(filtered_type) == 2) {
@@ -3453,6 +3502,7 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current, zend_exe
 #endif
     }
 
+    //如果tideways_flags中TIDEWAYS_FLAGS_NO_HIERACHICAL对应的bit未设置，函数分级，则条件满足进入if分支，
     if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_HIERACHICAL) == 0) {
         if (TWG(func_hash_counters)[current->hash_code] > 0) {
             /* Find this symbols recurse level */
@@ -3468,23 +3518,24 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current, zend_exe
         /* Init current function's recurse level */
         current->rlvl_hprof = recurse_level;
 
-        /* Get CPU usage */
+        /* Get CPU usage 获取CPU使用情况：在调用前记录CPU开始时间，函数方法调用完毕后，计算CPU时钟差*/
         if (TWG(tideways_flags) & TIDEWAYS_FLAGS_CPU) {
             current->cpu_start = cpu_timer();
         }
 
-        /* Get memory usage */
+        /* Get memory usage 获取内存情况：在调用前记录一个内存占用，函数方法调用完毕后，计算内存差*/
         if (TWG(tideways_flags) & TIDEWAYS_FLAGS_MEMORY) {
             current->mu_start_hprof  = zend_memory_usage(0 TSRMLS_CC);
             current->pmu_start_hprof = zend_memory_peak_usage(0 TSRMLS_CC);
         }
 
+        //为span添加注解，key为“fn”,value为“方法名”
         if (current->span_id >= 0) {
             tw_span_annotate_string(current->span_id, "fn", current->name_hprof, 1 TSRMLS_CC);
         }
     }
 
-    /* Get start tsc counter */
+    /* Get start tsc counter 记录系统开始时间*/
     current->tsc_start = cycle_timer();
 }
 
@@ -3816,6 +3867,7 @@ static void hp_begin(long tideways_flags TSRMLS_DC)
         tw_span_create("app", 3 TSRMLS_CC);
         tw_span_timer_start(0 TSRMLS_CC);
 
+        //将entries设置为root
         BEGIN_PROFILING(&TWG(entries), TWG(root), hp_profile_flag, NULL);
     }
 }
@@ -3823,6 +3875,7 @@ static void hp_begin(long tideways_flags TSRMLS_DC)
 /**
  * Called at request shutdown time. Cleans the profiler's global state.
  */
+//清空探针全局状态
 static void hp_end(TSRMLS_D)
 {
     /* Bail if not ever enabled */
@@ -4072,6 +4125,7 @@ static void tideways_throw_exception_hook(zval *exception TSRMLS_DC)
 }
 #endif
 
+//将<func,cb>设置进trace_callbacks数组，其中func为传入值1，cb为category（传入值2）对应的函数引用
 PHP_FUNCTION(tideways_span_watch)
 {
     char *func = NULL, *category = NULL;
@@ -4086,6 +4140,7 @@ PHP_FUNCTION(tideways_span_watch)
         return;
     }
 
+    //strcmp将两个字符串作比较，相等则返回0
     if (category != NULL && strcmp(category, "view") == 0) {
         cb = tw_trace_callback_view_engine;
     } else if (category != NULL && strcmp(category, "event") == 0) {
@@ -4094,6 +4149,7 @@ PHP_FUNCTION(tideways_span_watch)
         cb = tw_trace_callback_php_call;
     }
 
+    //在trace_callbacks数组中，将func对应的键，设置值为cb
     register_trace_callback_len(func, func_len, cb);
 }
 
@@ -4237,6 +4293,7 @@ PHP_FUNCTION(tideways_disable)
 #endif
 }
 
+//返回transaction_name字符串的副本
 PHP_FUNCTION(tideways_transaction_name)
 {
     if (TWG(transaction_name)) {
@@ -4244,11 +4301,13 @@ PHP_FUNCTION(tideways_transaction_name)
     }
 }
 
+//返回bool型的prepend_overwritten，表示auto_prepend_file是否被重写为Tideways.php
 PHP_FUNCTION(tideways_prepend_overwritten)
 {
     RETURN_BOOL(TWG(prepend_overwritten));
 }
 
+//返回zval型的backtrace
 PHP_FUNCTION(tideways_fatal_backtrace)
 {
     if (TWG(backtrace) != NULL) {
@@ -4256,6 +4315,7 @@ PHP_FUNCTION(tideways_fatal_backtrace)
     }
 }
 
+//返回zval型的exception
 PHP_FUNCTION(tideways_last_detected_exception)
 {
 #if PHP_VERSION_ID >= 70000
@@ -4267,6 +4327,7 @@ PHP_FUNCTION(tideways_last_detected_exception)
 #endif
 }
 
+//将error信息的各个字段，存放进数组return_value
 PHP_FUNCTION(tideways_last_fatal_error)
 {
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "") == FAILURE) {
@@ -4289,6 +4350,8 @@ PHP_FUNCTION(tideways_last_fatal_error)
     }
 }
 
+//根据参数category，创建span，并加入到全局变量spans中
+//返回spanid
 PHP_FUNCTION(tideways_span_create)
 {
     char *category = NULL;
@@ -4305,6 +4368,7 @@ PHP_FUNCTION(tideways_span_create)
     RETURN_LONG(tw_span_create(category, category_len TSRMLS_CC));
 }
 
+//返回spans的zval对象
 PHP_FUNCTION(tideways_get_spans)
 {
 #if PHP_VERSION_ID >= 70000
@@ -4316,6 +4380,8 @@ PHP_FUNCTION(tideways_get_spans)
 #endif
 }
 
+//在spans中找到对应的span,将持续的系统时间添加到span.b中（starts）
+//持续的系统时间:cycle_timer() - TWG(start_time)
 PHP_FUNCTION(tideways_span_timer_start)
 {
     zend_long spanId;
@@ -4331,6 +4397,8 @@ PHP_FUNCTION(tideways_span_timer_start)
     tw_span_timer_start(spanId TSRMLS_CC);
 }
 
+//在spans中找到对应的span,将持续的系统时间添加到span.e中（stops）
+//持续的系统时间:cycle_timer() - TWG(start_time)
 PHP_FUNCTION(tideways_span_timer_stop)
 {
     zend_long spanId;
@@ -4346,6 +4414,7 @@ PHP_FUNCTION(tideways_span_timer_stop)
     tw_span_timer_stop(spanId TSRMLS_CC);
 }
 
+//为span添加annotations注解，参数&annotations为zval型数据
 PHP_FUNCTION(tideways_span_annotate)
 {
     zend_long spanId;

@@ -118,7 +118,7 @@ typedef struct hp_entry_t {
     long int                span_id; /* span id of this entry if any, otherwise -1  span id值*/
 } hp_entry_t;
 
-//（young5218）方法名称堆栈
+//（young5218）方法名称map
 typedef struct hp_function_map {
     char **names;
     uint8 filter[TIDEWAYS_FILTERED_FUNCTION_SIZE];
