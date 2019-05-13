@@ -218,21 +218,38 @@ PHP_GINIT_FUNCTION(hp);				/* 初始化全局变量时*/
 PHP_GSHUTDOWN_FUNCTION(hp);			/*释放全局变量时*/
 
 /*声明导出函数，PHP脚本可直接调用*/
+
+/*启动探针采集，初始化探针的全局变量（系统时间、CPU时间等），创建span和hp_entry_t并填充字段*/
 PHP_FUNCTION(tideways_enable);
 PHP_FUNCTION(tideways_disable);
+/*返回TWG(transaction_name)的副本*/
 PHP_FUNCTION(tideways_transaction_name);
+/*返回zval型的TWG(backtrace)*/
 PHP_FUNCTION(tideways_fatal_backtrace);
+/*返回bool型的TWG(prepend_overwritten)，表示auto_prepend_file是否被重写为Tideways.php*/
 PHP_FUNCTION(tideways_prepend_overwritten);
+//返回zval型的TWG(exception)
 PHP_FUNCTION(tideways_last_detected_exception);
+//将error信息的各个字段放入数组，并返回
 PHP_FUNCTION(tideways_last_fatal_error);
+//返回sql信息，tideways中未对该方法实现
 PHP_FUNCTION(tideways_sql_minify);
 
+//根据参数category，创建span，并加入到全局变量spans中
 PHP_FUNCTION(tideways_span_create);
+//返回zval型的TWG(spans)
 PHP_FUNCTION(tideways_get_spans);
+
+//为span.b(starts)添加cycle_timer() - TWG(start_time)
 PHP_FUNCTION(tideways_span_timer_start);
+//为span.e(stops)添加cycle_timer() - TWG(start_time)
 PHP_FUNCTION(tideways_span_timer_stop);
+//为span添加annotations注解，参数&annotations为zval型数据（数组）
 PHP_FUNCTION(tideways_span_annotate);
+//根据传参2“category类别”，将对应的tw_trace_callback设置到trace_callbacks，其key值为传参1“fun方法名”
+//为方法（fun）找到对应的tw_trace_callback，设置进trace_callbacks
 PHP_FUNCTION(tideways_span_watch);
+//
 PHP_FUNCTION(tideways_span_callback);
 
 #endif  /* PHP_TIDEWAYS_H */

@@ -647,7 +647,7 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
     return SUCCESS;
 }
 
-//
+//category为类别，summary为函数名
 long tw_trace_callback_record_with_cache(char *category, int category_len, char *summary, strsize_t summary_len, int copy TSRMLS_DC)
 {
     long idx;
@@ -757,11 +757,13 @@ void tw_span_record_duration(long spanId, double start, double end TSRMLS_DC)
     add_next_index_long(timer, end);
 }
 
+//span生成函数
 long tw_trace_callback_php_call(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     return tw_trace_callback_record_with_cache("php", 3, symbol, strlen(symbol), 1 TSRMLS_CC);
 }
 
+//根据symbol在trace_watch_callbacks中找到tw_watch_callback，tw_watch_callback包含了方法调用
 long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     tw_watch_callback **temp;
@@ -775,6 +777,7 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
         return -1;
     }
 
+    //在trace_watch_callbacks中，根据方法名symbol找到tw_watch_callback twcb
 #if PHP_VERSION_ID < 70000
     if (zend_hash_find(TWG(trace_watch_callbacks), symbol, strlen(symbol)+1, (void **)&temp) == SUCCESS) {
         twcb = *temp;
@@ -783,6 +786,7 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 
     if (twcb) {
 #endif
+    	//声明变量
         _DECLARE_ZVAL(retval);
         _DECLARE_ZVAL(context);
         _DECLARE_ZVAL(zargs);
@@ -794,14 +798,17 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
         zend_error_handling zeh;
         int i;
 
+        //申请内存空间
         _ALLOC_INIT_ZVAL(context);
         array_init(context);
 
         _ALLOC_INIT_ZVAL(zargs);
         array_init(zargs);
 
+        //将方法名加入到context数组
         _add_assoc_string_ex(context, "fn", sizeof("fn"), symbol, 1);
 
+        //将data中参数加入到zargs数组
         if (args_len > 0) {
             for (i = 0; i < args_len; i++) {
                 Z_TRY_ADDREF_P(ZEND_CALL_ARG(data, i+1));
@@ -809,6 +816,7 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
             }
         }
 
+        //将参数zargs加入到context数组
         Z_ADDREF_P(zargs);
         add_assoc_zval(context, "args", zargs);
 
@@ -825,6 +833,7 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 
         twcb->fci.param_count = 1;
         twcb->fci.size = sizeof(twcb->fci);
+        //retval_ptr_ptr为返回值，这里将retval的引用设置给retval_ptr_ptr
 #if PHP_VERSION_ID < 70000
         twcb->fci.retval_ptr_ptr = &retval;
         twcb->fci.params = (zval ***)params;
@@ -836,6 +845,7 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
         fci = twcb->fci;
         fcic = twcb->fcic;
 
+        //调用方法
         if (zend_call_function(&fci, &fcic TSRMLS_CC) == FAILURE) {
             zend_error(E_ERROR, "Cannot call Trace Watch Callback");
         }
@@ -862,6 +872,7 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
     return -1;
 }
 
+//span生成函数
 long tw_trace_callback_mongodb_connect(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     long idx = -1;
@@ -902,6 +913,7 @@ long tw_trace_callback_mongodb_connect(char *symbol, zend_execute_data *data TSR
     return idx;
 }
 
+//span生成函数
 long tw_trace_callback_mongodb_command(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     long idx = -1;
@@ -929,6 +941,7 @@ long tw_trace_callback_mongodb_command(char *symbol, zend_execute_data *data TSR
     return idx;
 }
 
+//span生成函数
 long tw_trace_callback_mongo_cursor_io(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     long idx = -1;
@@ -959,6 +972,7 @@ long tw_trace_callback_mongo_cursor_io(char *symbol, zend_execute_data *data TSR
     return idx;
 }
 
+//span生成函数
 long tw_trace_callback_mongo_cursor_next(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     long idx = -1;
@@ -1005,6 +1019,7 @@ long tw_trace_callback_mongo_cursor_next(char *symbol, zend_execute_data *data T
     return idx;
 }
 
+//span生成函数
 long tw_trace_callback_mongo_collection(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     long idx = -1;
@@ -1036,6 +1051,7 @@ long tw_trace_callback_mongo_collection(char *symbol, zend_execute_data *data TS
     return idx;
 }
 
+//span生成函数
 long tw_trace_callback_predis_call(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     zval *commandId = ZEND_CALL_ARG(data, 1);
@@ -1047,6 +1063,7 @@ long tw_trace_callback_predis_call(char *symbol, zend_execute_data *data TSRMLS_
     return tw_trace_callback_record_with_cache("predis", 6, Z_STRVAL_P(commandId), Z_STRLEN_P(commandId), 1 TSRMLS_CC);
 }
 
+//span生成函数
 long tw_trace_callback_phpampqlib(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     zval *exchange;
@@ -1065,6 +1082,7 @@ long tw_trace_callback_phpampqlib(char *symbol, zend_execute_data *data TSRMLS_D
     return tw_trace_callback_record_with_cache("queue", 5, Z_STRVAL_P(exchange), Z_STRLEN_P(exchange), 1 TSRMLS_CC);
 }
 
+//span生成函数
 long tw_trace_callback_pheanstalk(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     zend_class_entry *pheanstalk_ce;
@@ -1088,11 +1106,13 @@ long tw_trace_callback_pheanstalk(char *symbol, zend_execute_data *data TSRMLS_D
     }
 }
 
+//span生成函数
 long tw_trace_callback_memcache(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     return tw_trace_callback_record_with_cache("memcache", 8, symbol, strlen(symbol), 1 TSRMLS_CC);
 }
 
+//span生成函数
 long tw_trace_callback_php_controller(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     long idx;
@@ -1103,6 +1123,7 @@ long tw_trace_callback_php_controller(char *symbol, zend_execute_data *data TSRM
     return idx;
 }
 
+//span生成函数
 long tw_trace_callback_eloquent_model(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     zend_class_entry *eloquent_ce;
@@ -1127,6 +1148,7 @@ long tw_trace_callback_eloquent_model(char *symbol, zend_execute_data *data TSRM
     return idx;
 }
 
+//span生成函数
 long tw_trace_callback_eloquent_query(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     zend_class_entry *eloquent_ce;
@@ -1159,6 +1181,7 @@ long tw_trace_callback_eloquent_query(char *symbol, zend_execute_data *data TSRM
     return idx;
 }
 
+//span生成函数
 long tw_trace_callback_presta_controller(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     zend_class_entry *controller_ce;
@@ -1178,6 +1201,7 @@ long tw_trace_callback_presta_controller(char *symbol, zend_execute_data *data T
     return idx;
 }
 
+//span生成函数
 zend_string *tw_extract_cakephp_controller_name(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     zval *object = EX_OBJ(data);
@@ -1234,6 +1258,7 @@ zend_string *tw_extract_cakephp_controller_name(char *symbol, zend_execute_data 
     return ctrl_str;
 }
 
+//span生成函数
 long tw_trace_callback_cakephp_controller(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     long idx = -1;
@@ -1251,6 +1276,7 @@ long tw_trace_callback_cakephp_controller(char *symbol, zend_execute_data *data 
     return idx;
 }
 
+//span生成函数
 long tw_trace_callback_doctrine_couchdb_request(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     zval *method = ZEND_CALL_ARG(data, 1);
@@ -1269,6 +1295,7 @@ long tw_trace_callback_doctrine_couchdb_request(char *symbol, zend_execute_data 
     return idx;
 }
 
+//span生成函数
 long tw_trace_callback_view_class(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     zend_class_entry *ce;
@@ -1284,6 +1311,7 @@ long tw_trace_callback_view_class(char *symbol, zend_execute_data *data TSRMLS_D
 }
 
 /* Zend_View_Abstract::render($name); */
+//span生成函数
 long tw_trace_callback_view_engine(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     zval *name = ZEND_CALL_ARG(data, 1);
@@ -1299,6 +1327,7 @@ long tw_trace_callback_view_engine(char *symbol, zend_execute_data *data TSRMLS_
 }
 
 /* Applies to Enlight, Mage and Zend1 */
+//span生成函数
 long tw_trace_callback_zend1_dispatcher_families_tx(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     zval *argument_element = ZEND_CALL_ARG(data, 1);
@@ -1333,6 +1362,7 @@ long tw_trace_callback_zend1_dispatcher_families_tx(char *symbol, zend_execute_d
 }
 
 /* oxShopControl::_process($sClass, $sFnc = null); */
+//span生成函数
 long tw_trace_callback_oxid_tx(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     zval *sClass = ZEND_CALL_ARG(data, 1);
@@ -1360,6 +1390,7 @@ long tw_trace_callback_oxid_tx(char *symbol, zend_execute_data *data TSRMLS_DC)
 }
 
 /* $resolver->getArguments($request, $controller); */
+//span生成函数
 long tw_trace_callback_symfony_resolve_arguments_tx(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     zval *callback, *controller, *action;
@@ -1399,6 +1430,7 @@ long tw_trace_callback_symfony_resolve_arguments_tx(char *symbol, zend_execute_d
     return -1;
 }
 
+//span生成函数
 long tw_trace_callback_pgsql_execute(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     zval *argument_element;
@@ -1420,6 +1452,7 @@ long tw_trace_callback_pgsql_execute(char *symbol, zend_execute_data *data TSRML
     return -1;
 }
 
+//span生成函数
 long tw_trace_callback_pgsql_query(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     zval *argument_element;
@@ -1441,6 +1474,7 @@ long tw_trace_callback_pgsql_query(char *symbol, zend_execute_data *data TSRMLS_
     return -1;
 }
 
+//span生成函数
 long tw_trace_callback_smarty3_template(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     zval *argument_element = ZEND_CALL_ARG(data, 1);
@@ -1482,6 +1516,7 @@ long tw_trace_callback_smarty3_template(char *symbol, zend_execute_data *data TS
     return tw_trace_callback_record_with_cache("view", 4, template, template_len, 1 TSRMLS_CC);
 }
 
+//span生成函数
 long tw_trace_callback_doctrine_persister(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     zval *property;
@@ -1515,6 +1550,7 @@ long tw_trace_callback_doctrine_persister(char *symbol, zend_execute_data *data 
     return -1;
 }
 
+//span生成函数
 long tw_trace_callback_doctrine_query(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     zval *property;
@@ -1564,6 +1600,7 @@ long tw_trace_callback_doctrine_query(char *symbol, zend_execute_data *data TSRM
     return idx;
 }
 
+//span生成函数
 long tw_trace_callback_twig_template(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     long idx = -1, *idx_ptr;
@@ -1592,6 +1629,7 @@ long tw_trace_callback_twig_template(char *symbol, zend_execute_data *data TSRML
     return idx;
 }
 
+//span生成函数
 long tw_trace_callback_event_dispatchers2(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     long idx = -1, *idx_ptr;
@@ -1614,6 +1652,7 @@ long tw_trace_callback_event_dispatchers2(char *symbol, zend_execute_data *data 
     return idx;
 }
 
+//span生成函数
 long tw_trace_callback_event_dispatchers(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     long idx = -1, *idx_ptr;
@@ -1647,6 +1686,7 @@ long tw_trace_callback_event_dispatchers(char *symbol, zend_execute_data *data T
     return idx;
 }
 
+//span生成函数
 long tw_trace_callback_mysqli_connect(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     long idx = -1;
@@ -1686,6 +1726,7 @@ long tw_trace_callback_mysqli_connect(char *symbol, zend_execute_data *data TSRM
     return idx;
 }
 
+//span生成函数
 #if HAVE_PDO
 long tw_trace_callback_pdo_connect(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
@@ -1787,6 +1828,7 @@ zend_string *tw_pcre_match(char *pattern, strsize_t len, zval *subject TSRMLS_DC
 }
 #endif
 
+//span生成函数
 #if HAVE_PDO
 long tw_trace_callback_pdo_stmt_execute(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
@@ -1804,16 +1846,19 @@ long tw_trace_callback_pdo_stmt_execute(char *symbol, zend_execute_data *data TS
 }
 #endif
 
+//span生成函数
 long tw_trace_callback_mysqli_stmt_execute(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     return tw_trace_callback_record_with_cache("sql", 3, "execute", 7, 1 TSRMLS_CC);
 }
 
+//span生成函数
 long tw_trace_callback_sql_commit(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     return tw_trace_callback_record_with_cache("sql", 3, "commit", 3, 1 TSRMLS_CC);
 }
 
+//span生成函数
 long tw_trace_callback_sql_functions(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     zval *argument_element;
@@ -1835,6 +1880,7 @@ long tw_trace_callback_sql_functions(char *symbol, zend_execute_data *data TSRML
     return idx;
 }
 
+//span生成函数
 long tw_trace_callback_fastcgi_finish_request(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     // stop the main span, the request ended here
@@ -1843,6 +1889,7 @@ long tw_trace_callback_fastcgi_finish_request(char *symbol, zend_execute_data *d
     return tw_trace_callback_record_with_cache("php", 3, symbol, strlen(symbol), 1 TSRMLS_CC);
 }
 
+//span生成函数
 long tw_trace_callback_elasticsearch_perform_request(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     long idx;
@@ -1876,6 +1923,7 @@ long tw_trace_callback_elasticsearch_perform_request(char *symbol, zend_execute_
     return idx; // sync without returning a future
 }
 
+//span生成函数
 long tw_trace_callback_elasticsearch_wait_request(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     long idx, *idx_ptr = NULL;
@@ -1900,6 +1948,7 @@ long tw_trace_callback_elasticsearch_wait_request(char *symbol, zend_execute_dat
     return -1;
 }
 
+//span生成函数
 long tw_trace_callback_curl_multi_add(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     zval *curl_handle;
@@ -1939,6 +1988,7 @@ long tw_trace_callback_curl_multi_add(char *symbol, zend_execute_data *data TSRM
     return -1;
 }
 
+//span生成函数
 long tw_trace_callback_curl_multi_remove(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     zval *curl_handle, *spanId, *option;
@@ -2047,6 +2097,7 @@ long tw_trace_callback_curl_multi_remove(char *symbol, zend_execute_data *data T
     return -1;
 }
 
+//span生成函数
 long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     zval *argument = ZEND_CALL_ARG(data, 1);
@@ -2092,6 +2143,7 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
     return idx;
 }
 
+//span生成函数
 long tw_trace_callback_soap_client_dorequest(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     if (ZEND_CALL_NUM_ARGS(data) < 2) {
@@ -2114,6 +2166,7 @@ long tw_trace_callback_soap_client_dorequest(char *symbol, zend_execute_data *da
     return idx;
 }
 
+//span生成函数
 long tw_trace_callback_file_get_contents(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     zval *argument = ZEND_CALL_ARG(data, 1);
@@ -2452,6 +2505,7 @@ static inline void hp_free_trace_cb(zval *zv) {
 static inline void hp_free_trace_cb(void *p) {}
 #endif
 
+//初始化trace相关的变量：trace_callbacks、trace_watch_callbacks、span_cache
 void hp_init_trace_callbacks(TSRMLS_D)
 {
     tw_trace_callback cb;
@@ -2469,6 +2523,8 @@ void hp_init_trace_callbacks(TSRMLS_D)
 
     ALLOC_HASHTABLE(TWG(span_cache));
     zend_hash_init(TWG(span_cache), 255, NULL, NULL, 0);
+
+   /* 对一些方法，注册默认的span生成函数，并加入到trace_callbacks*/
 
     cb = tw_trace_callback_file_get_contents;
     register_trace_callback("file_get_contents", cb);
@@ -2757,6 +2813,7 @@ void hp_init_trace_callbacks(TSRMLS_D)
  *
  * @author kannan, veeve
  */
+//初始化探针状态：1）对全局变量设置初始值 ；2）
 void hp_init_profiler_state(TSRMLS_D)
 {
     if (!TWG(ever_enabled)) {
@@ -2790,6 +2847,7 @@ void hp_init_profiler_state(TSRMLS_D)
     array_init(TWG(spans));
 #endif
 
+    //初始化trace_callbacks：为对应的方法，注册对应的span生成函数
     hp_init_trace_callbacks(TSRMLS_C);
 }
 
@@ -2867,6 +2925,7 @@ static void hp_clean_profiler_options_state(TSRMLS_D)
  *        TSRMLS_FETCH() IS RELATIVELY EXPENSIVE.
  */
 //如果symbol不存在于全局变量filtered_functions，则execute_data不被过滤，创建cur_entry并更新给entries
+//为cur_entry创建span,并填充cur_entry的字段
 #define BEGIN_PROFILING(entries, symbol, profile_curr, execute_data)            \
     do {                                                                        \
         /* Use a hash code to filter most of the string comparisons. */         \
@@ -2880,7 +2939,7 @@ static void hp_clean_profiler_options_state(TSRMLS_D)
             (cur_entry)->name_hprof = symbol;                                   \
             (cur_entry)->prev_hprof = (*(entries));                             \
             (cur_entry)->span_id = -1;                                          \
-            //对hp_entry_t进行采样，填充字段
+            //对cur_entry进行采样，填充字段(如，spanid、记录CPU开始时钟、记录调用前内存占用、为span添加<"fn",name_hprof>注解)
             hp_mode_hier_beginfn_cb((entries), (cur_entry), execute_data TSRMLS_CC);            \
             /* Update entries linked list */                                    \
             (*(entries)) = (cur_entry);                                         \
@@ -3482,16 +3541,20 @@ static double get_timebase_factor()
  *
  * @author kannan
  */
+//在trace_callbacks找到对应的span生成函数，并将spanid设置给hp_entry_t *current
+//对(hp_entry_t)*current进行采样，填充字段(如，记录CPU开始时钟、记录调用前内存占用、为span添加<"fn",name_hprof>注解),并
 void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current, zend_execute_data *data TSRMLS_DC)
 {
     hp_entry_t   *p;
     tw_trace_callback *callback;
     int    recurse_level = 0;
 
+    //如果在trace_callbacks中找到方法名（current->name_hprof）对应的tw_trace_callback，将其赋值给callback
     if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_SPANS) == 0 && data != NULL) {
 #if PHP_VERSION_ID < 70000
         if (zend_hash_find(TWG(trace_callbacks), current->name_hprof, strlen(current->name_hprof)+1, (void **)&callback) == SUCCESS) {
-            current->span_id = (*callback)(current->name_hprof, data TSRMLS_CC);
+        	//调用callback指向的函数，生成span，并返回spanid
+        	current->span_id = (*callback)(current->name_hprof, data TSRMLS_CC);
         }
 #else
         callback = (tw_trace_callback*)zend_hash_str_find_ptr(TWG(trace_callbacks), current->name_hprof, strlen(current->name_hprof));
@@ -3506,6 +3569,7 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current, zend_exe
     if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_HIERACHICAL) == 0) {
         if (TWG(func_hash_counters)[current->hash_code] > 0) {
             /* Find this symbols recurse level */
+        	/*entries为方法栈顶指针，递归向前查找方法，如果找到对应的方法名，将其递归级别设置为前一个方法的（级别+1）*/
             for(p = (*entries); p; p = p->prev_hprof) {
                 if (!strcmp(current->name_hprof, p->name_hprof)) {
                     recurse_level = (p->rlvl_hprof) + 1;
@@ -3515,7 +3579,7 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current, zend_exe
         }
         TWG(func_hash_counters)[current->hash_code]++;
 
-        /* Init current function's recurse level */
+        /* Init current function's recurse level 初始化当前函数的递归级别*/
         current->rlvl_hprof = recurse_level;
 
         /* Get CPU usage 获取CPU使用情况：在调用前记录CPU开始时间，函数方法调用完毕后，计算CPU时钟差*/
@@ -3844,6 +3908,7 @@ ZEND_DLEXPORT zend_op_array* hp_compile_string(zval *source_string, char *filena
 //1.初始化探针状态
 //2.在全局变量中加入tideways_flags、系统时间、CPU时间等
 //3.创建span
+//4.创建hp_entry_t，填充字段，并将其赋值给方法栈顶指针TWG(entries)
 static void hp_begin(long tideways_flags TSRMLS_DC)
 {
     if (!TWG(enabled)) {
@@ -3867,7 +3932,7 @@ static void hp_begin(long tideways_flags TSRMLS_DC)
         tw_span_create("app", 3 TSRMLS_CC);
         tw_span_timer_start(0 TSRMLS_CC);
 
-        //将entries设置为root
+        //创建以TWG(root)为方法名的hp_entry_t，并将其初始化（spanid、记录CPU初始值、内存初始值、记录方法名）
         BEGIN_PROFILING(&TWG(entries), TWG(root), hp_profile_flag, NULL);
     }
 }
@@ -4125,7 +4190,7 @@ static void tideways_throw_exception_hook(zval *exception TSRMLS_DC)
 }
 #endif
 
-//将<func,cb>设置进trace_callbacks数组，其中func为传入值1，cb为category（传入值2）对应的函数引用
+//根据category（传入值2）找到对应的tw_trace_callback，并将其设置到trace_callbacks，其key值为传参1“fun方法名”
 PHP_FUNCTION(tideways_span_watch)
 {
     char *func = NULL, *category = NULL;
@@ -4141,6 +4206,7 @@ PHP_FUNCTION(tideways_span_watch)
     }
 
     //strcmp将两个字符串作比较，相等则返回0
+    //根据类别category设置tw_trace_callback
     if (category != NULL && strcmp(category, "view") == 0) {
         cb = tw_trace_callback_view_engine;
     } else if (category != NULL && strcmp(category, "event") == 0) {
@@ -4185,6 +4251,7 @@ static void tideways_add_callback_watch(zend_fcall_info fci, zend_fcall_info_cac
     tw_watch_callback *twcb;
     tw_trace_callback cb;
 
+    //根据参数初始化tw_watch_callback
     twcb = emalloc(sizeof(tw_watch_callback));
     twcb->fci = fci;
     twcb->fcic = fcic;
@@ -4194,6 +4261,7 @@ static void tideways_add_callback_watch(zend_fcall_info fci, zend_fcall_info_cac
         zend_hash_init(TWG(trace_watch_callbacks), 255, NULL, free_tw_watch_callback, 0);
     }
 
+    //修改trace_watch_callbacks，将func对应项设置成tw_watch_callback
 #if PHP_VERSION_ID < 70000
     zend_hash_update(TWG(trace_watch_callbacks), func, func_len+1, &twcb, sizeof(tw_watch_callback*), NULL);
 #else
@@ -4211,6 +4279,7 @@ PHP_FUNCTION(tideways_span_callback)
     char *func;
     strsize_t func_len;
 
+    //接收参数
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sf", &func, &func_len, &fci, &fcic) == FAILURE) {
         zend_error(E_ERROR, "tideways_span_callback() expects a string as a first and a callback as a second argument");
         return;
@@ -4268,6 +4337,10 @@ PHP_FUNCTION(tideways_enable)
     //从args中解析可选参数，并加入到全局变量中（如ignored_functions、functions等）
     hp_parse_options_from_arg(optional_array TSRMLS_CC);
 
+    //1.初始化探针状态
+    //2.在全局变量中加入tideways_flags、系统时间、CPU时间等
+    //3.创建span
+    //4.创建hp_entry_t，填充字段，并将其赋值给方法栈顶指针TWG(entries)
     hp_begin(tideways_flags TSRMLS_CC);
 }
 
