@@ -249,7 +249,7 @@ PHP_FUNCTION(tideways_span_annotate);
 //根据传参2“category类别”，将对应的tw_trace_callback设置到trace_callbacks，其key值为传参1“fun方法名”
 //为方法（fun）找到对应的tw_trace_callback，设置进trace_callbacks
 PHP_FUNCTION(tideways_span_watch);
-//
+//为方法添加回调函数
 PHP_FUNCTION(tideways_span_callback);
 
 #endif  /* PHP_TIDEWAYS_H */

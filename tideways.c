@@ -200,6 +200,7 @@ typedef size_t strsize_t;
 #define php_pcre_pce_decref(pce) pce->refcount--
 #endif
 
+//在ht中，根据key找到值
 static zend_always_inline zval* zend_compat_hash_find_const(HashTable *ht, const char *key, strsize_t len)
 {
 #if PHP_VERSION_ID < 70000
@@ -726,6 +727,7 @@ void tw_span_timer_stop(long spanId TSRMLS_DC)
     add_next_index_long(stops, wt);
 }
 
+//找到对应的span，将start和end记录进注解中
 void tw_span_record_duration(long spanId, double start, double end TSRMLS_DC)
 {
     zval *span, *timer;
@@ -734,6 +736,7 @@ void tw_span_record_duration(long spanId, double start, double end TSRMLS_DC)
         return;
     }
 
+    //找到span
     span = zend_compat_hash_index_find(TWG_ARRVAL(TWG(spans)), spanId);
 
     if (span == NULL) {
@@ -763,7 +766,7 @@ long tw_trace_callback_php_call(char *symbol, zend_execute_data *data TSRMLS_DC)
     return tw_trace_callback_record_with_cache("php", 3, symbol, strlen(symbol), 1 TSRMLS_CC);
 }
 
-//根据symbol在trace_watch_callbacks中找到tw_watch_callback，tw_watch_callback包含了方法调用
+//根据symbol在trace_watch_callbacks中找到tw_watch_callback，执行tw_watch_callback指定的函数，返回函数执行结果
 long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     tw_watch_callback **temp;
@@ -857,7 +860,7 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 #endif
 
         long idx = -1;
-
+        //retval为fci执行后的返回值
         if (retval) {
             if (Z_TYPE_P(retval) == IS_LONG) {
                 idx = Z_LVAL_P(retval);
@@ -2975,6 +2978,8 @@ static void hp_clean_profiler_options_state(TSRMLS_D)
  * @return total size of the function name returned in result_buf
  * @author veeve
  */
+//返回格式化函数名称
+//如果entry的函数递归级别（rlvl_hprof）不为0，将其拼接成“函数名@函数级别”的形式追加给result_buf，并返回其长度
 size_t hp_get_entry_name(hp_entry_t  *entry, char *result_buf, size_t result_len)
 {
     /* Validate result_len */
@@ -2986,6 +2991,8 @@ size_t hp_get_entry_name(hp_entry_t  *entry, char *result_buf, size_t result_len
     /* Add '@recurse_level' if required */
     /* NOTE:  Dont use snprintf's return val as it is compiler dependent */
     if (entry->rlvl_hprof) {
+    	//函数递归级别不为0
+    	//拼接成“函数名@函数级别”的形式，赋值给result_buf
         snprintf(
             result_buf,
             result_len,
@@ -2994,6 +3001,8 @@ size_t hp_get_entry_name(hp_entry_t  *entry, char *result_buf, size_t result_len
             entry->rlvl_hprof
         );
     } else {
+    	//函数递归级别为0
+    	//将函数名的前result_len个字符追加给result_buf
         strncat(
             result_buf,
             entry->name_hprof,
@@ -3051,12 +3060,15 @@ static inline int hp_filter_entry(uint8 hash_code, char *curr_func TSRMLS_DC)
  *
  * @author kannan, veeve
  */
+//为被调用者构建调用者限定名：将entry对应方法的前level个调用者名称拼接在一起，赋值给result_buf
+//参数为hp_entry_t、深度、结果字符串、结果字符串长度
 size_t hp_get_function_stack(hp_entry_t *entry, int level, char *result_buf, size_t result_len)
 {
     size_t         len = 0;
 
     if (!entry->prev_hprof || (level <= 1)) {
-        return hp_get_entry_name(entry, result_buf, result_len);
+    	//将entry的格式化函数名赋值给result_buf，并返回其长度
+    	return hp_get_entry_name(entry, result_buf, result_len);
     }
 
     len = hp_get_function_stack(entry->prev_hprof, level - 1, result_buf, result_len);
@@ -3422,6 +3434,8 @@ static void hp_fast_free_hprof_entry(hp_entry_t *p TSRMLS_DC)
  * @return void
  * @author kannan
  */
+//如果counts包含键name，设置counts.get(name)=counts.get(name)+count
+//如果counts不包含键name，设置counts.get(name)=count
 void hp_inc_count(zval *counts, char *name, long count TSRMLS_DC)
 {
     HashTable *ht;
@@ -3430,15 +3444,17 @@ void hp_inc_count(zval *counts, char *name, long count TSRMLS_DC)
     if (!counts) {
         return;
     }
-
+    //将counts转为HashMap
     ht = HASH_OF(counts);
 
     if (!ht) {
         return;
     }
 
+    //在ht中找到键（name）对应的值（data）
     data = zend_compat_hash_find_const(ht, name, strlen(name));
 
+    //将
     if (data) {
         ZVAL_LONG(data, Z_LVAL_P(data) + count);
     } else {
@@ -3614,6 +3630,10 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current, zend_exe
  *
  * @author kannan
  */
+//TIDEWAYS_MODE_HIERARCHICAL结束的函数回调
+//1.为entries对应的span记录开始时间、结束时间、方法调用堆栈
+//2.在Map(stats_count)中，找到entries调用者方法对应的数组，为其累加ct、wt、cpu、mu、pmu等字段
+//3.Map(func_hash_counters)中将entries对应的hash_code的值减1
 void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_DC)
 {
     hp_entry_t      *top = (*entries);
@@ -3630,14 +3650,16 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
     zval *trace, *span;
 #endif
 
-    /* Get end tsc counter */
+    /* Get end tsc counter*/
+   //记录系统时钟的持续时间
     tsc_end = cycle_timer();
     wt = get_us_from_tsc(tsc_end - top->tsc_start TSRMLS_CC);
-
+    //记录CPU时钟的持续时间
     if (TWG(tideways_flags) & TIDEWAYS_FLAGS_CPU) {
         cpu = get_us_from_tsc(cpu_timer() - top->cpu_start TSRMLS_CC);
     }
 
+    //找到对应的span，将start和end记录进注解中,并记录方法调用堆栈
     if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_SPANS) == 0 && top->span_id >= 0) {
         double start = get_us_from_tsc(top->tsc_start - TWG(start_time) TSRMLS_CC);
         double end = get_us_from_tsc(tsc_end - TWG(start_time) TSRMLS_CC);
@@ -3646,13 +3668,16 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 #if PHP_VERSION_ID >= 50400
         if (wt >= TWG(stack_threshold)) { // 50ms
 #if PHP_VERSION_ID < 70000
-            MAKE_STD_ZVAL(trace);
+            MAKE_STD_ZVAL(trace);//创建zval型的trace
 #endif
 
+            //在spans中找到span
             span = zend_compat_hash_index_find(TWG_ARRVAL(TWG(spans)), top->span_id);
 
             if (span) {
-                zend_fetch_debug_backtrace(trace, 0, DEBUG_BACKTRACE_IGNORE_ARGS, 10 TSRMLS_CC);
+                //将方法调用堆栈保存进trace
+            	zend_fetch_debug_backtrace(trace, 0, DEBUG_BACKTRACE_IGNORE_ARGS, 10 TSRMLS_CC);
+            	//在span中保存调用堆栈stack
                 add_assoc_zval(span, "stack", trace);
             }
         }
@@ -3664,10 +3689,13 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
     }
 
     /* Get the stat array */
+    //获取（hp_entry_t）top的调用者方法名称（深度为2），将其赋值给symbol
     hp_get_function_stack(top, 2, symbol, sizeof(symbol));
 
+    //根据键symbol，在TWG(stats_count)找到对应的值赋值给counts
     counts = zend_compat_hash_find_const(TWG_ARRVAL(TWG(stats_count)), symbol, strlen(symbol));
 
+    //如果counts为null，将初始化值<symbol,counts>设置到stats_count
     if (counts == NULL) {
 #if PHP_VERSION_ID >= 70000
         counts = &count_val;
@@ -3681,14 +3709,18 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
     }
 
     /* Bump stats in the counts hashtable */
+    //对counts中的键“ct”累加1：
     hp_inc_count(counts, "ct", 1  TSRMLS_CC);
+    //对counts中的键“wt”累加wt:函数的系统持续时间
     hp_inc_count(counts, "wt", wt TSRMLS_CC);
 
+    //对counts中的键“cpu”累加
     if (TWG(tideways_flags) & TIDEWAYS_FLAGS_CPU) {
         /* Bump CPU stats in the counts hashtable */
         hp_inc_count(counts, "cpu", cpu TSRMLS_CC);
     }
 
+    //对counts中的键“mu”和“pmu”累加
     if (TWG(tideways_flags) & TIDEWAYS_FLAGS_MEMORY) {
         /* Get Memory usage */
         mu_end  = zend_memory_usage(0 TSRMLS_CC);
@@ -3699,6 +3731,7 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
         hp_inc_count(counts, "pmu", pmu_end - top->pmu_start_hprof  TSRMLS_CC);
     }
 
+    //对func_hash_counters中该函数hash_code对应的值，减1
     TWG(func_hash_counters)[top->hash_code]--;
 }
 
@@ -4246,6 +4279,9 @@ static void free_tw_watch_callback(void *twcb)
 }
 #endif
 
+//在TWG(trace_watch_callbacks)中将func对应项设置为tw_trace_callback(fci+fcic)
+//在TWG(trace_callbacks)中将func对应项设置为tw_trace_callback_watch（方法名）
+//tw_trace_callback_watch作用：在trace_watch_callbacks中找到func对应的tw_watch_callback，执行函数，并返回结果
 static void tideways_add_callback_watch(zend_fcall_info fci, zend_fcall_info_cache fcic, char *func, int func_len TSRMLS_DC)
 {
     tw_watch_callback *twcb;
@@ -4268,6 +4304,7 @@ static void tideways_add_callback_watch(zend_fcall_info fci, zend_fcall_info_cac
     zend_hash_str_update_mem(TWG(trace_watch_callbacks), func, func_len, twcb, sizeof(tw_watch_callback));
     efree(twcb); // zend_hash_str_update_mem makes a copy
 #endif
+    //tw_trace_callback_watch：根据symbol在trace_watch_callbacks中找到tw_watch_callback，执行tw_watch_callback指定的函数，返回函数执行结果
     cb = tw_trace_callback_watch;
     register_trace_callback_len(func, func_len, cb);
 }
@@ -4302,6 +4339,9 @@ PHP_FUNCTION(tideways_span_callback)
     }
 #endif
 
+    //在TWG(trace_watch_callbacks)中将func对应项设置为tw_trace_callback(fci+fcic)
+    //在TWG(trace_callbacks)中将func对应项设置为tw_trace_callback_watch（方法名）
+    //tw_trace_callback_watch作用：在trace_watch_callbacks中找到func对应的tw_watch_callback，执行函数，并返回结果
     tideways_add_callback_watch(fci, fcic, func, func_len TSRMLS_CC);
 }
 
