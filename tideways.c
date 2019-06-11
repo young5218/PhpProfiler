@@ -583,6 +583,7 @@ PHP_MINIT_FUNCTION(tideways)
     _zend_compile_string = zend_compile_string;
     zend_compile_string = hp_compile_string;
 
+    //用户定义函数
 #if PHP_VERSION_ID < 50500
     _zend_execute = zend_execute;
     zend_execute  = hp_execute;
@@ -603,6 +604,7 @@ PHP_MINIT_FUNCTION(tideways)
     gc_collect_cycles = tw_gc_collect_cycles;
 #endif
 
+    //内置函数
     _zend_execute_internal = zend_execute_internal;
     zend_execute_internal = hp_execute_internal;
 
@@ -3190,16 +3192,19 @@ static void hp_detect_exception(char *func_name, zend_execute_data *data TSRMLS_
     int i;
     zend_class_entry *default_ce, *exception_ce;
 
+    //1.获取Exception的父类
     default_ce = zend_exception_get_default(TSRMLS_C);
 
     for (i=0; i < arg_count; i++) {
+    	//2.获取函数参数
         argument_element = ZEND_CALL_ARG(data, i+1);
 
         if (Z_TYPE_P(argument_element) == IS_OBJECT) {
             exception_ce = Z_OBJCE_P(argument_element);
-
+            //3.检测参数，是否为Exception类型
             if (instanceof_function(exception_ce, default_ce TSRMLS_CC) == 1) {
 #if PHP_VERSION_ID >= 70000
+            	//4.将Exception类型参数，赋值给TWG(exception)
                 ZVAL_COPY(&TWG(exception), argument_element);
 #else
                 Z_ADDREF_P(argument_element);
@@ -3568,7 +3573,9 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current, zend_exe
     //如果在trace_callbacks中找到方法名（current->name_hprof）对应的tw_trace_callback，将其赋值给callback
     if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_SPANS) == 0 && data != NULL) {
 #if PHP_VERSION_ID < 70000
-        if (zend_hash_find(TWG(trace_callbacks), current->name_hprof, strlen(current->name_hprof)+1, (void **)&callback) == SUCCESS) {
+    	//查找与函数名对应的tw_trace_callback
+        if (zend_hash_find(TWG(trace_callbacks), current->name_hprof,
+        		strlen(current->name_hprof)+1, (void **)&callback) == SUCCESS) {
         	//调用callback指向的函数，生成span，并返回spanid
         	current->span_id = (*callback)(current->name_hprof, data TSRMLS_CC);
         }
@@ -4196,6 +4203,7 @@ void tideways_error_cb(int type, const char *error_filename, const uint error_li
                 ALLOC_INIT_ZVAL(backtrace);
 
 #if PHP_VERSION_ID <= 50399
+                //保存方法调用栈
                 zend_fetch_debug_backtrace(backtrace, 1, 0 TSRMLS_CC);
 #else
                 zend_fetch_debug_backtrace(backtrace, 1, 0, 0 TSRMLS_CC);

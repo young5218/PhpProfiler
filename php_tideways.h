@@ -52,13 +52,13 @@ extern zend_module_entry tideways_module_entry;
  * profiling.
  */
 //（young5218）定义常量，在PHP_MINIT_FUNCTION中将其加入到全局常量列表中，php文件中可用
-#define TIDEWAYS_FLAGS_NO_BUILTINS   0x0001 /* do not profile builtins */
-#define TIDEWAYS_FLAGS_CPU           0x0002 /* gather CPU times for funcs */
-#define TIDEWAYS_FLAGS_MEMORY        0x0004 /* gather memory usage for funcs */
+#define TIDEWAYS_FLAGS_NO_BUILTINS   0x0001 /* do not profile builtins 不分析内置函数*/
+#define TIDEWAYS_FLAGS_CPU           0x0002 /* gather CPU times for funcs 对函数采集CPU时间*/
+#define TIDEWAYS_FLAGS_MEMORY        0x0004 /* gather memory usage for funcs 对函数采集内存占用率*/
 #define TIDEWAYS_FLAGS_NO_USERLAND   0x0008 /* do not profile userland functions */
 #define TIDEWAYS_FLAGS_NO_COMPILE    0x0010 /* do not profile require/include/eval */
-#define TIDEWAYS_FLAGS_NO_SPANS      0x0020
-#define TIDEWAYS_FLAGS_NO_HIERACHICAL 0x0040
+#define TIDEWAYS_FLAGS_NO_SPANS      0x0020	/*不记录span*/
+#define TIDEWAYS_FLAGS_NO_HIERACHICAL 0x0040 /*不记录函数的调用关系stats_count*/
 
 #define TIDEWAYS_ANNOTATION_MAX_LENGTH 2000
 

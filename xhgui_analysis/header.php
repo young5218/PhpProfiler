@@ -1,4 +1,10 @@
 <?php
+//引入js探针
+echo "<script src='yonyou-yyy.js'></script>";
+//打印Http请求头和Cookie
+file_put_contents("/home/php_log/xhgui.log","\n".json_encode($_SERVER)."\n", FILE_APPEND);
+file_put_contents("/home/php_log/xhgui.log","\n".json_encode($_COOKIE)."\n", FILE_APPEND);
+
 // 检查至少需要包含xhprof、uprofiler、tideways、tideways_xhprof之一
 if (!extension_loaded('xhprof') && !extension_loaded('uprofiler') && !extension_loaded('tideways') && !extension_loaded('tideways_xhprof')) {
     error_log('xhgui - either extension xhprof, uprofiler or tideways must be loaded');
@@ -70,8 +76,9 @@ register_shutdown_function(
             $data['profile'] = tideways_xhprof_disable();
         } else if ($extension == 'tideways' && extension_loaded('tideways')) {
             //调用tideways导出函数，将采集的数据取出来
-            $data['profile'] = tideways_disable();
+            $data['profile'] = tideways_disable();        
             $sqlData = tideways_get_spans();
+           	$data['spans']=tideways_get_spans();
             $data['sql'] = array();
             //sql数据
             if(isset($sqlData[1])){
@@ -90,7 +97,12 @@ register_shutdown_function(
         } else {
             $data['profile'] = xhprof_disable();
         }
-
+    
+        //采集异常信息
+        $data['backtrace']=tideways_fatal_backtrace();
+        $data['exception']=tideways_last_detected_exception();
+        $data['exception']=tideways_last_fatal_error();
+        
         //忽略与用户的断开,脚本继续执行
         ignore_user_abort(true);
         //将当前为止程序的所有输出发送到用户的浏览器
@@ -125,7 +137,7 @@ register_shutdown_function(
             $requestTsMicro = new MongoDate($requestTimeFloat[0], $requestTimeFloat[1]);
         }
         //存储meta数据，用于描述数据的数据
-        $data['meta'] = array(
+       $data['meta'] = array(
             'url' => $uri,
             'SERVER' => $_SERVER,
             'get' => $_GET,
@@ -134,7 +146,9 @@ register_shutdown_function(
             'request_ts' => $requestTs,
             'request_ts_micro' => $requestTsMicro,
             'request_date' => date('Y-m-d', $time),
-        );
+        ); 
+        file_put_contents("/home/php_log/xhgui.log","\n".json_encode($data)."\n", FILE_APPEND);
+        
         //将数据发送至mongodb
         try {
             $config = Xhgui_Config::all();
@@ -144,5 +158,8 @@ register_shutdown_function(
         } catch (Exception $e) {
             error_log('xhgui - ' . $e->getMessage());
         }
+        
     }
+
 );
+
