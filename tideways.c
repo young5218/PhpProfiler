@@ -500,6 +500,11 @@ PHP_INI_ENTRY("tideways.max_spans", "1500", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.stack_threshold", "20000", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.timeout", "10000", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.service", "", PHP_INI_ALL, NULL)
+//在扩展中添加字段后，在php.ini的配置才会生效
+PHP_INI_ENTRY("yyy.tid", "", PHP_INI_ALL, NULL)
+PHP_INI_ENTRY("yyy.servername", "", PHP_INI_ALL, NULL)
+PHP_INI_ENTRY("yyy.collectmode", "", PHP_INI_ALL, NULL)
+PHP_INI_ENTRY("yyy.framework", "", PHP_INI_ALL, NULL)
 
 PHP_INI_END()
 
@@ -3218,6 +3223,7 @@ static void hp_detect_exception(char *func_name, zend_execute_data *data TSRMLS_
 
 static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS_DC)
 {
+	//如果TWG(transaction_function)未设置，或已经获取TWG(transaction_name)，或当前函数不是TWG(transaction_function)指定函数
     if (!TWG(transaction_function) ||
         TWG(transaction_name) ||
         strcmp(ret, ZSTR_VAL(TWG(transaction_function))) != 0) {
